@@ -5,4 +5,4 @@ Repository containing code and and other materials for my undergraduate project 
 
 # Useful links
 
-1. Materials created by the author John Hinch to supplement the book (and more) can be found [here](http://www.damtp.cam.ac.uk/user/hinch/teaching/CMIFM_Handouts/)
+1. Materials created by the author John Hinch to supplement the book (and more) can be found [here](http://www.damtp.cam.ac.uk/user/hinch/teaching/CMIFM_Handouts/){:target="_blank" rel="noopener"}
