@@ -11,4 +11,4 @@ Many of these codes were written abruptly and for one time use only, so it can (
 # Useful links
 
 1. Original materials created by the author of the book that I read Edward J. Hinch to supplement the book (and more) can be found [here](http://www.damtp.cam.ac.uk/user/hinch/teaching/CMIFM_Handouts/).
-2. The codes in this repository make heavy use of (SciPy)[https://scipy.org/].
+2. The codes in this repository make heavy use of [SciPy](https://scipy.org/).
