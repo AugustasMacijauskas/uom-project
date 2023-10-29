@@ -5,4 +5,5 @@ d = { 'settings': { 'branch': 'main',
                 'doc_host': 'https://AugustasMacijauskas.github.io',
                 'git_url': 'https://github.com/AugustasMacijauskas/uom-project',
                 'lib_path': 'uom_project'},
-  'syms': {'uom_project.core': {'uom_project.core.foo': ('core.html#foo', 'uom_project/core.py')}}}
+  'syms': { 'uom_project.poisson_solvers': { 'uom_project.poisson_solvers.poisson_gauss_seidel_solver': ( 'poisson_solvers.html#poisson_gauss_seidel_solver',
+                                                                                                          'uom_project/poisson_solvers.py')}}}
