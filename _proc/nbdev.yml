@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "uom-project"
+  site-url: "https://AugustasMacijauskas.github.io/uom-project"
+  description: "Repository containing code and and other materials for my undergraduate project on numerical solutions to the Navier-Stokes equations at the University of Manchester."
+  repo-branch: main
+  repo-url: "https://github.com/AugustasMacijauskas/uom-project"
