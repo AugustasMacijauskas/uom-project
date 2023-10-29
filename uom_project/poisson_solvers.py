@@ -3,10 +3,10 @@
 # %% auto 0
 __all__ = ['poisson_gauss_seidel_solver']
 
-# %% ../nbs/01_poisson_solvers.ipynb 4
+# %% ../nbs/01_poisson_solvers.ipynb 5
 import numpy as np
 
-# %% ../nbs/01_poisson_solvers.ipynb 8
+# %% ../nbs/01_poisson_solvers.ipynb 9
 def poisson_gauss_seidel_solver(
         w, h, nx, ny, r,
         verbose=True, log_middle_values=False,
