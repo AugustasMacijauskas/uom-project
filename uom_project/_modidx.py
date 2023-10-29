@@ -5,5 +5,11 @@ d = { 'settings': { 'branch': 'main',
                 'doc_host': 'https://AugustasMacijauskas.github.io',
                 'git_url': 'https://github.com/AugustasMacijauskas/uom-project',
                 'lib_path': 'uom_project'},
-  'syms': { 'uom_project.poisson_solvers': { 'uom_project.poisson_solvers.poisson_gauss_seidel_solver': ( 'poisson_solvers.html#poisson_gauss_seidel_solver',
-                                                                                                          'uom_project/poisson_solvers.py')}}}
+  'syms': { 'uom_project.poisson_solvers': { 'uom_project.poisson_solvers.construct_laplacian_kernel_matrix_dense': ( 'poisson_solvers.html#construct_laplacian_kernel_matrix_dense',
+                                                                                                                      'uom_project/poisson_solvers.py'),
+                                             'uom_project.poisson_solvers.construct_laplacian_kernel_matrix_sparse': ( 'poisson_solvers.html#construct_laplacian_kernel_matrix_sparse',
+                                                                                                                       'uom_project/poisson_solvers.py'),
+                                             'uom_project.poisson_solvers.poisson_gauss_seidel_with_sor_solver': ( 'poisson_solvers.html#poisson_gauss_seidel_with_sor_solver',
+                                                                                                                   'uom_project/poisson_solvers.py'),
+                                             'uom_project.poisson_solvers.poisson_non_iterative_solver': ( 'poisson_solvers.html#poisson_non_iterative_solver',
+                                                                                                           'uom_project/poisson_solvers.py')}}}
