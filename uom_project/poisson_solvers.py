@@ -2,11 +2,16 @@
 
 # %% auto 0
 __all__ = ['poisson_gauss_seidel_with_sor_solver', 'construct_laplacian_kernel_matrix_dense',
-           'construct_laplacian_kernel_matrix_sparse', 'poisson_non_iterative_solver']
+           'construct_laplacian_kernel_matrix_sparse', 'poisson_non_iterative_solver', 'get_jacobian', 'f',
+           'newton_iterator', 'newton_solver', 'alternative_jacobian', 'alternative_f', 'newton_alternative']
 
 # %% ../nbs/01_poisson_solvers.ipynb 5
+from functools import partial
+
 import numpy as np
+import scipy
 from scipy import sparse
+
 
 # %% ../nbs/01_poisson_solvers.ipynb 9
 def poisson_gauss_seidel_with_sor_solver(
@@ -43,13 +48,15 @@ def poisson_gauss_seidel_with_sor_solver(
     
     return psi, iteration, middle_values
 
+
 # %% ../nbs/01_poisson_solvers.ipynb 38
-def construct_laplacian_kernel_matrix_dense(N):
+def construct_laplacian_kernel_matrix_dense(N, h=None):
     '''
     Construct the matrix that defines the linear system in dense form
     '''
 
-    h = 1 / (N + 1)
+    if h is None:
+        h = 1 / (N + 1)
 
     kernel_matrix = -4 * np.eye(N ** 2) / h ** 2
     index_matrix = np.arange(N ** 2).reshape((N, N))
@@ -90,12 +97,13 @@ def construct_laplacian_kernel_matrix_dense(N):
 
 
 # %% ../nbs/01_poisson_solvers.ipynb 39
-def construct_laplacian_kernel_matrix_sparse(N):
+def construct_laplacian_kernel_matrix_sparse(N, h=None):
     '''
     Construct the matrix that defines the linear system in sparse form
     '''
 
-    h = 1 / (N + 1)
+    if h is None:
+        h = 1 / (N + 1)
 
     index_matrix = np.arange(N ** 2).reshape((N, N))
     all_indices = np.arange(N ** 2)
@@ -148,6 +156,7 @@ def construct_laplacian_kernel_matrix_sparse(N):
     # Create the sparse matrix from the above information
     return sparse.csr_matrix((values, (rows, cols)), shape=(N ** 2, N ** 2))
 
+
 # %% ../nbs/01_poisson_solvers.ipynb 40
 def poisson_non_iterative_solver(w, use_sparse=True):
     N = w.shape[0] - 2
@@ -174,3 +183,111 @@ def poisson_non_iterative_solver(w, use_sparse=True):
     
     return psi
 
+
+# %% ../nbs/01_poisson_solvers.ipynb 50
+def get_jacobian(N):
+    return construct_laplacian_kernel_matrix_sparse(N, h=1)
+    
+
+def f(x, w):
+    # this N is different from before
+    N = int(np.sqrt(x.shape[0]))
+    h = 1 / (N + 1)
+    
+    x = x.reshape(N, N)
+    x = np.pad(x, (1, 1), mode="constant", constant_values=0)
+    
+    f = -4 * x[1:-1, 1:-1] + x[2:, 1:-1] + x[:-2, 1:-1] + x[1:-1, 2:] + x[1:-1, :-2]
+    f = f + h ** 2 * w[1:-1, 1:-1]
+    
+    return f.reshape((-1, 1))
+
+
+def newton_iterator(w, f, get_jacobian, TOL=1e-8, max_iter=10, quiet=True):
+    '''
+        - w: vorticity
+        - f: evaluates the function given x, w, h
+        - get_jacobian: evaluates the Jacobian given N
+    '''
+
+    N = w.shape[0] - 1
+    
+    n_iter = 0 # number of iterations
+
+    # Initialization
+    x = np.zeros(((N - 1) ** 2, 1))
+    
+    # Initialization
+    f_current = f(x, w)
+    
+    # Check if the initial guess is a solution
+    f_norm = scipy.linalg.norm(f_current)
+    if f_norm <= TOL:
+        if not quiet:
+            print(f"n_iter={n_iter}")
+
+        return x, n_iter
+    
+    
+    while n_iter < max_iter:
+        n_iter += 1
+        # Set h=1 to have better scaling and not that we actually compute h ** 2 * f_current
+        jacobian = get_jacobian(N=N - 1)
+        
+        dx = scipy.sparse.linalg.spsolve(jacobian, -f_current).reshape((-1, 1))
+        x_next = x + dx
+        
+        f_current = f(x_next, w)
+        
+        f_norm = scipy.linalg.norm(f_current)
+        if not quiet:
+            print(f"iter={n_iter}; |residual|={f_norm}; |dx|={scipy.linalg.norm(dx)}")
+        if f_norm <= TOL:
+            break
+        
+        x = x_next
+
+    if not quiet:
+        print(f"n_iter={n_iter}")
+    
+    return x_next, n_iter
+
+
+def newton_solver(w, TOL=1e-8, max_iter=10, quiet=True):
+    solution, _ = newton_iterator(
+        w=w, f=f, get_jacobian=get_jacobian,
+        TOL=TOL, max_iter=max_iter, quiet=quiet
+    )
+    
+    N = w.shape[0] - 1
+    psi = solution.reshape(N - 1, N - 1)
+
+    psi = np.pad(psi, (1, 1), mode="constant", constant_values=0)
+    
+    return psi
+
+
+# %% ../nbs/01_poisson_solvers.ipynb 51
+def alternative_jacobian(x):
+    N = int(np.sqrt(x.shape[0]))
+    return get_jacobian(N)
+
+
+def alternative_f(x, w):
+    return f(x, w).flatten()
+
+
+def newton_alternative(w, **kwargs):
+    N = w.shape[0] - 1
+
+    solution = scipy.optimize.root(
+        fun=partial(alternative_f, w=w), x0=np.zeros(((N - 1) ** 2, )),
+        # jac=alternative_jacobian,
+        **kwargs
+    )
+    
+    psi = solution.x.reshape(N - 1, N - 1)
+
+    psi = np.pad(psi, (1, 1), mode="constant", constant_values=0)
+    
+    return psi, solution
