@@ -280,7 +280,6 @@ def poisson_newton_alternative_solver(w, **kwargs):
 
     solution = scipy.optimize.root(
         fun=partial(alternative_f, w=w), x0=np.zeros(((N - 1) ** 2, )),
-        # jac=alternative_jacobian,
         **kwargs
     )
     
