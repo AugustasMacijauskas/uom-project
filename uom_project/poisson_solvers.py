@@ -68,54 +68,7 @@ def poisson_gauss_seidel_with_sor_solver(
 
 
 # %% ../nbs/01_poisson_solvers.ipynb 25
-def construct_laplacian_kernel_matrix_dense(N, h=None):
-    '''
-    Construct the matrix that defines the linear system in dense form
-    '''
-
-    if h is None:
-        h = 1 / (N + 1)
-
-    kernel_matrix = -4 * np.eye(N ** 2) / h ** 2
-    index_matrix = np.arange(N ** 2).reshape((N, N))
-    all_indices = np.arange(N ** 2)
-
-    # Create grid
-    x_grid, y_grid = np.meshgrid(
-        np.arange(0, N), np.arange(0, N), indexing="ij"
-    )
-
-    # Masks for validity
-    valid_above = x_grid > 0
-    valid_below = x_grid < N - 1
-    valid_left = y_grid > 0
-    valid_right = y_grid < N - 1
-
-    # Get the indices
-    idx_above = index_matrix[(
-        (x_grid - 1)[valid_above].flatten(), y_grid[valid_above].flatten()
-    )]
-    idx_below = index_matrix[(
-        (x_grid + 1)[valid_below].flatten(), y_grid[valid_below].flatten()
-    )]
-    idx_left = index_matrix[(
-        x_grid[valid_left].flatten(), (y_grid - 1)[valid_left].flatten()
-    )]
-    idx_right = index_matrix[(
-        x_grid[valid_right].flatten(), (y_grid + 1)[valid_right].flatten()
-    )]
-
-    value = 1 / h ** 2
-    kernel_matrix[all_indices[valid_above.flatten()], idx_above] = value
-    kernel_matrix[all_indices[valid_below.flatten()], idx_below] = value
-    kernel_matrix[all_indices[valid_left.flatten()], idx_left] = value
-    kernel_matrix[all_indices[valid_right.flatten()], idx_right] = value
-
-    return kernel_matrix
-
-
-# %% ../nbs/01_poisson_solvers.ipynb 26
-def construct_laplacian_kernel_matrix_sparse(N, h=None):
+def construct_laplacian_kernel_matrix(N, h=None):
     '''
     Construct the matrix that defines the linear system in sparse form
     '''
@@ -175,39 +128,39 @@ def construct_laplacian_kernel_matrix_sparse(N, h=None):
     return sparse.csr_matrix((values, (rows, cols)), shape=(N ** 2, N ** 2))
 
 
-# %% ../nbs/01_poisson_solvers.ipynb 27
+# %% ../nbs/01_poisson_solvers.ipynb 26
 SPARSE_ALGORITHM_DICT = {
     "base": sparse.linalg.spsolve,
     "cg": sparse.linalg.cg,
     "bicgstab": sparse.linalg.bicgstab,
 }
 
-# %% ../nbs/01_poisson_solvers.ipynb 28
-def poisson_non_iterative_solver(
-    w, use_sparse=True, sparse_algorithm="bicgstab"
-):
+def solve_sparse_linear_system(A, b, algorithm="base"):
+    """
+    Solve a sparse linear system using the specified algorithm.
+    """
+
+    solver = SPARSE_ALGORITHM_DICT[algorithm]
+
+    if algorithm == "base": b = sparse.csr_matrix(b[:, None])
+
+    soln = solver(A, b)
+
+    return soln if algorithm == "base" else soln[0]
+
+
+# %% ../nbs/01_poisson_solvers.ipynb 27
+def poisson_non_iterative_solver(w, algorithm="bicgstab"):
     N = w.shape[0] - 2
 
     # Construct the matrix that defines the linear system
-    if use_sparse:
-        kernel_matrix = construct_laplacian_kernel_matrix_sparse(N)
-    else:
-        kernel_matrix = construct_laplacian_kernel_matrix_dense(N)
+    kernel_matrix = construct_laplacian_kernel_matrix(N)
     
     # Cast vorticity to the required form
     w = -w[1:-1, 1:-1].flatten()
-    if use_sparse and sparse_algorithm == "base":
-        w = sparse.csr_matrix(w[:, None])
 
-    sparse_solver = SPARSE_ALGORITHM_DICT[sparse_algorithm]
-    
     # Solve the linear system
-    if use_sparse:
-        psi = sparse_solver(kernel_matrix, w)
-        if sparse_algorithm != "base": psi = psi[0]
-    else:
-        # psi = np.linalg.solve(kernel_matrix, w)
-        psi = sparse.linalg.bicgstab(kernel_matrix, w)[0]
+    psi = solve_sparse_linear_system(A=kernel_matrix, b=w, algorithm=algorithm)
     
     psi = psi.reshape(N, N)
 
@@ -216,9 +169,11 @@ def poisson_non_iterative_solver(
     return psi
 
 
-# %% ../nbs/01_poisson_solvers.ipynb 39
+# %% ../nbs/01_poisson_solvers.ipynb 34
 def get_jacobian(N):
-    return construct_laplacian_kernel_matrix_sparse(N, h=1)
+    # Set h=1 and note that we actually compute h ** 2 * f_current below.
+    # This is to done have better scaling.
+    return construct_laplacian_kernel_matrix(N, h=1)
     
 
 def f(x, w):
@@ -230,12 +185,15 @@ def f(x, w):
     x = np.pad(x, (1, 1), mode="constant", constant_values=0)
     
     f = -4 * x[1:-1, 1:-1] + x[2:, 1:-1] + x[:-2, 1:-1] + x[1:-1, 2:] + x[1:-1, :-2]
-    f = f + h ** 2 * w[1:-1, 1:-1]
+    f = f + h ** 2 * w[1:-1, 1:-1] # note we compute h ** 2 * f_current
     
     return f.reshape((-1, 1))
 
 
-def newton_iterator(w, f, get_jacobian, TOL=1e-8, max_iter=10, quiet=True):
+def newton_iterator(
+    w, f, get_jacobian,
+    algorithm="bicgstab", TOL=1e-8, max_iter=10, quiet=True
+):
     '''
         - w: vorticity
         - f: evaluates the function given x, w, h
@@ -263,11 +221,13 @@ def newton_iterator(w, f, get_jacobian, TOL=1e-8, max_iter=10, quiet=True):
     
     while n_iter < max_iter:
         n_iter += 1
-        # Set h=1 to have better scaling and not that we actually compute h ** 2 * f_current
-        jacobian = get_jacobian(N=N - 1)
+        # Set h=1 to have better scaling and note that we actually compute h ** 2 * f_current
+        jacobian = sparse.csr_matrix(get_jacobian(N=N-1)) # Sparsify the jacobian
         
-        dx = scipy.sparse.linalg.spsolve(jacobian, -f_current).reshape((-1, 1))
-        # dx = scipy.sparse.linalg.cg(jacobian, -f_current)[0].reshape((-1, 1))
+        # dx = scipy.sparse.linalg.spsolve(jacobian, -f_current).reshape((-1, 1))
+        dx = solve_sparse_linear_system(
+            A=jacobian, b=-f_current, algorithm=algorithm
+        ).reshape((-1, 1))
         x_next = x + dx
         
         f_current = f(x_next, w)
@@ -286,10 +246,13 @@ def newton_iterator(w, f, get_jacobian, TOL=1e-8, max_iter=10, quiet=True):
     return x_next, n_iter
 
 
-# %% ../nbs/01_poisson_solvers.ipynb 40
-def poisson_newton_solver(w, TOL=1e-8, max_iter=10, quiet=True):
+# %% ../nbs/01_poisson_solvers.ipynb 35
+def poisson_newton_solver(
+    w, algorithm="bicgstab", TOL=1e-8, max_iter=10, quiet=True
+):
     solution, _ = newton_iterator(
         w=w, f=f, get_jacobian=get_jacobian,
+        algorithm=algorithm,
         TOL=TOL, max_iter=max_iter, quiet=quiet
     )
     
@@ -301,7 +264,7 @@ def poisson_newton_solver(w, TOL=1e-8, max_iter=10, quiet=True):
     return psi
 
 
-# %% ../nbs/01_poisson_solvers.ipynb 43
+# %% ../nbs/01_poisson_solvers.ipynb 36
 def alternative_jacobian(x):
     N = int(np.sqrt(x.shape[0]))
     return get_jacobian(N)
@@ -311,7 +274,7 @@ def alternative_f(x, w):
     return f(x, w).flatten()
 
 
-# %% ../nbs/01_poisson_solvers.ipynb 44
+# %% ../nbs/01_poisson_solvers.ipynb 37
 def poisson_newton_alternative_solver(w, **kwargs):
     N = w.shape[0] - 1
 
