@@ -27,4 +27,10 @@ d = { 'settings': { 'branch': 'main',
                                              'uom_project.poisson_solvers.setup_poisson_problem': ( 'poisson_solvers.html#setup_poisson_problem',
                                                                                                     'uom_project/poisson_solvers.py'),
                                              'uom_project.poisson_solvers.solve_sparse_linear_system': ( 'poisson_solvers.html#solve_sparse_linear_system',
-                                                                                                         'uom_project/poisson_solvers.py')}}}
+                                                                                                         'uom_project/poisson_solvers.py')},
+            'uom_project.streamfunction_vorticity': { 'uom_project.streamfunction_vorticity.get_dw_dt': ( '02_streamfunction_vorticity_iterative_solver/streamfunction_vorticity_iterative_solver.html#get_dw_dt',
+                                                                                                          'uom_project/streamfunction_vorticity.py'),
+                                                      'uom_project.streamfunction_vorticity.streamfunction_vorticity_iterative_solver': ( '02_streamfunction_vorticity_iterative_solver/streamfunction_vorticity_iterative_solver.html#streamfunction_vorticity_iterative_solver',
+                                                                                                                                          'uom_project/streamfunction_vorticity.py'),
+                                                      'uom_project.streamfunction_vorticity.update_vorticity_bcs': ( '02_streamfunction_vorticity_iterative_solver/streamfunction_vorticity_iterative_solver.html#update_vorticity_bcs',
+                                                                                                                     'uom_project/streamfunction_vorticity.py')}}}
