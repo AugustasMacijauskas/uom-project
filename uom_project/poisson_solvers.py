@@ -157,10 +157,12 @@ def poisson_non_iterative_solver(w, algorithm="bicgstab"):
     kernel_matrix = construct_laplacian_kernel_matrix(N)
     
     # Cast vorticity to the required form
-    w = -w[1:-1, 1:-1].flatten()
+    w = w[1:-1, 1:-1].flatten()
 
-    # Solve the linear system
-    psi = solve_sparse_linear_system(A=kernel_matrix, b=w, algorithm=algorithm)
+    # Solve the linear system.
+    # Note -ve sign is applied to make A positive definite which is required
+    # by some of the iterative solvers.
+    psi = solve_sparse_linear_system(A=-kernel_matrix, b=w, algorithm=algorithm)
     
     psi = psi.reshape(N, N)
 
@@ -222,7 +224,8 @@ def newton_iterator(
     while n_iter < max_iter:
         n_iter += 1
         # Set h=1 to have better scaling and note that we actually compute h ** 2 * f_current
-        jacobian = sparse.csr_matrix(get_jacobian(N=N-1)) # Sparsify the jacobian
+        # jacobian = sparse.csr_matrix(get_jacobian(N=N-1)) # Sparsify the jacobian
+        jacobian = get_jacobian(N=N-1) # Sparsify the jacobian
         
         # dx = scipy.sparse.linalg.spsolve(jacobian, -f_current).reshape((-1, 1))
         dx = solve_sparse_linear_system(
