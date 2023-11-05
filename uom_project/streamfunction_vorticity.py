@@ -3,12 +3,12 @@
 # %% auto 0
 __all__ = ['streamfunction_vorticity_iterative_solver']
 
-# %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 5
-from . import poisson_solvers
+# %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 6
+from . import core, poisson_solvers
 
 import numpy as np
 
-# %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 8
+# %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 9
 def update_vorticity_bcs(w, psi, U_wall_top, nx, ny, h):
     # First calculate BCs to 1st order
 
@@ -66,7 +66,7 @@ def get_dw_dt(dw_dt, w, psi, Re, nx, ny, h):
     return dw_dt
 
 
-# %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 9
+# %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 10
 # Incorporates both the Poisson problem and time-stepping for the vorticity
 def streamfunction_vorticity_iterative_solver(
     N, Re, tfinal, U_wall_top, dt=None, print_every=0.0
