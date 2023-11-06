@@ -46,4 +46,12 @@ d = { 'settings': { 'branch': 'main',
                                                              'uom_project.streamfunction_vorticity_newton.newton_solver': ( 'streamfunction_vorticity_newton.html#newton_solver',
                                                                                                                             'uom_project/streamfunction_vorticity_newton.py'),
                                                              'uom_project.streamfunction_vorticity_newton.reconstruct_w': ( 'streamfunction_vorticity_newton.html#reconstruct_w',
-                                                                                                                            'uom_project/streamfunction_vorticity_newton.py')}}}
+                                                                                                                            'uom_project/streamfunction_vorticity_newton.py')},
+            'uom_project.streamfunction_vorticity_nonlinear': { 'uom_project.streamfunction_vorticity_nonlinear.f': ( 'streamfunction_vorticity_nonlinear.html#f',
+                                                                                                                      'uom_project/streamfunction_vorticity_nonlinear.py'),
+                                                                'uom_project.streamfunction_vorticity_nonlinear.get_standard_basis_vector': ( 'streamfunction_vorticity_nonlinear.html#get_standard_basis_vector',
+                                                                                                                                              'uom_project/streamfunction_vorticity_nonlinear.py'),
+                                                                'uom_project.streamfunction_vorticity_nonlinear.make_f': ( 'streamfunction_vorticity_nonlinear.html#make_f',
+                                                                                                                           'uom_project/streamfunction_vorticity_nonlinear.py'),
+                                                                'uom_project.streamfunction_vorticity_nonlinear.make_get_jacobian': ( 'streamfunction_vorticity_nonlinear.html#make_get_jacobian',
+                                                                                                                                      'uom_project/streamfunction_vorticity_nonlinear.py')}}}

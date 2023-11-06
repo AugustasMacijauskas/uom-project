@@ -166,9 +166,7 @@ def newton_iterator(
     
     while n_iter < max_iter:
         n_iter += 1
-        jacobian = sparse.csr_matrix(
-            get_jacobian(f=f, x=x, Re=Re, kernel_matrix=A)
-        )
+        jacobian = get_jacobian(f=f, x=x, Re=Re, kernel_matrix=A)
 
         kwargs = {}
         if algorithm == "bicgstab": kwargs["tol"] = 1e-6
