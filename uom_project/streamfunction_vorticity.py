@@ -4,7 +4,7 @@
 __all__ = ['streamfunction_vorticity_iterative_solver']
 
 # %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 6
-from . import core, poisson_solvers
+from . import poisson_solvers
 
 import numpy as np
 
