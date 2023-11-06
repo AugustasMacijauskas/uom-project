@@ -69,7 +69,8 @@ def get_dw_dt(dw_dt, w, psi, Re, nx, ny, h):
 # %% ../nbs/02_streamfunction_vorticity_iterative_solver/02_streamfunction_vorticity_iterative_solver.ipynb 10
 # Incorporates both the Poisson problem and time-stepping for the vorticity
 def streamfunction_vorticity_iterative_solver(
-    N, Re, tfinal, U_wall_top, dt=None, print_every=0.0
+    N, Re, tfinal, U_wall_top, dt=None,
+    algorithm="base", print_every=0.0
 ):
     nx = ny = N + 1 # i.e. N = 10
     h = 1 / N # h = dx (=dy) = 1 / N; x-size is 1, y-size is ny/nx
@@ -86,7 +87,9 @@ def streamfunction_vorticity_iterative_solver(
     t = 0
     while t < tfinal:
         # Start by solving the Poisson problem
-        psi = poisson_solvers.poisson_non_iterative_solver(w)
+        psi = poisson_solvers.poisson_non_iterative_solver(
+            w, algorithm=algorithm
+        )
 
         # Now time-step vorticity
         w = update_vorticity_bcs(w, psi, U_wall_top, nx, ny, h)

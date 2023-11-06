@@ -1,0 +1,17 @@
+# Have to decrease time-step
+# Increasing N of steps is what is important
+
+# Steady state might not exist
+# Becomes philosophical
+# -> Steady state is likely to exist, but might not be stable (think of perturbing)
+
+# Good initial guess
+
+# See how solutions vary with Re (recirculation areas in bottom left and right)
+# Symmetry should be broken with increasing Re
+
+# Increasing Re should make the problem unstable
+# Iterative should win here (Newton would find the unstable steady)
+
+# Find the critical Re
+# Could also try finding it by trying lots of values of Re (time consuming)

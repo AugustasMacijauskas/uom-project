@@ -161,7 +161,7 @@ def newton_iterator(
 ):
     '''
         - w: vorticity
-        - f: evaluates the function given x, w, h
+        - f: evaluates the function given x, w
         - get_jacobian: evaluates the Jacobian given N
     '''
 
@@ -171,8 +171,6 @@ def newton_iterator(
 
     # Initialization
     x = np.zeros(((N - 1) ** 2, 1))
-    
-    # Initialization
     f_current = f(x, w)
     
     # Check if the initial guess is a solution
@@ -190,7 +188,6 @@ def newton_iterator(
         # jacobian = sparse.csr_matrix(get_jacobian(N=N-1)) # Sparsify the jacobian
         jacobian = get_jacobian(N=N-1) # Sparsify the jacobian
         
-        # dx = scipy.sparse.linalg.spsolve(jacobian, -f_current).reshape((-1, 1))
         dx = core.solve_sparse_linear_system(
             A=jacobian, b=-f_current, algorithm=algorithm
         ).reshape((-1, 1))
