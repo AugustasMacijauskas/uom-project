@@ -12,9 +12,8 @@ import numpy as np
 
 import jax
 import jax.numpy as jnp
+jax.config.update("jax_enable_x64", True) # enable JAX to use double precision
 
-from jax import config
-config.update("jax_enable_x64", True)
 
 # %% ../nbs/06_streamfunction_vorticity_jax.ipynb 7
 @jax.jit
@@ -23,10 +22,10 @@ def f_jax(x, Re, U_wall_top):
     h = 1 / N
 
     psi = x[:(N-1)**2].reshape(N-1, N-1)
-    w_left   = x[(N-1)**2 + 0*(N-1) : (N-1)**2 + 1*(N-1)][:, 0]
-    w_right  = x[(N-1)**2 + 1*(N-1) : (N-1)**2 + 2*(N-1)][:, 0]
-    w_bottom = x[(N-1)**2 + 2*(N-1) : (N-1)**2 + 3*(N-1)][:, 0]
-    w_top    = x[(N-1)**2 + 3*(N-1) : (N-1)**2 + 4*(N-1)][:, 0]
+    w_left   = x[(N-1)**2 + 0*(N-1) : (N-1)**2 + 1*(N-1)]
+    w_right  = x[(N-1)**2 + 1*(N-1) : (N-1)**2 + 2*(N-1)]
+    w_bottom = x[(N-1)**2 + 2*(N-1) : (N-1)**2 + 3*(N-1)]
+    w_top    = x[(N-1)**2 + 3*(N-1) : (N-1)**2 + 4*(N-1)]
     w_middle = x[(N-1)**2 + 4*(N-1) :].reshape(N-1, N-1)
 
     # Calculate the equations coming from the Poisson equation
@@ -99,27 +98,27 @@ def f_jax(x, Re, U_wall_top):
     return jnp.concatenate([
         f_poisson.flatten(), f_w_left, f_w_right, f_w_bottom, f_w_top,
         f_w_middle.flatten(),
-    ], axis=0)[:, None]
+    ], axis=0)
 
 
 # %% ../nbs/06_streamfunction_vorticity_jax.ipynb 16
 def reconstruct_w_jax(w_tmp, N):
     w = jnp.zeros((N+1, N+1))
 
-    w = w.at[:1, 1:-1].set(w_tmp[0*(N-1):1*(N-1)].T)
-    w = w.at[-1:, 1:-1].set(w_tmp[1*(N-1):2*(N-1)].T)
-    w = w.at[1:-1, :1].set(w_tmp[2*(N-1):3*(N-1)])
-    w = w.at[1:-1, -1:].set(w_tmp[3*(N-1):4*(N-1)])
+    w = w.at[0, 1:-1].set(w_tmp[0*(N-1):1*(N-1)])
+    w = w.at[-1, 1:-1].set(w_tmp[1*(N-1):2*(N-1)])
+    w = w.at[1:-1, 0].set(w_tmp[2*(N-1):3*(N-1)])
+    w = w.at[1:-1, -1].set(w_tmp[3*(N-1):4*(N-1)])
     w = w.at[1:-1, 1:-1].set(w_tmp[4*(N-1):].reshape((N - 1, N - 1)))
 
     return w
 
 
-@partial(jax.jit, static_argnums=(0, 1, 6,))
+@partial(jax.jit, static_argnums=(0, 5,))
 def newton_iteration_step(
-    f, get_jacobian, x, Re, U_wall_top, f_current, algorithm,
+    f, x, Re, U_wall_top, f_current, algorithm="lineax_lu",
 ):
-    jacobian = get_jacobian(x, Re, U_wall_top).squeeze()
+    jacobian = jax.jacfwd(f)(x, Re, U_wall_top)
 
     dx = core.solve_sparse_linear_system_jax(
         A=jacobian, b=-f_current, algorithm=algorithm,
@@ -133,8 +132,8 @@ def newton_iteration_step(
 
 
 def newton_iterator_jax(
-    f, get_jacobian, N, Re, U_wall_top,
-    algorithm="base", TOL=1e-8, max_iter=10, quiet=True
+    f, N, Re, U_wall_top,
+    algorithm="lineax_lu", TOL=1e-8, max_iter=10, quiet=True
 ):
     '''
         - f: evaluates the function given x, Re
@@ -149,7 +148,7 @@ def newton_iterator_jax(
     # Initialization
     # Size (N - 1) ** 2         + (N + 1) ** 2    - 4
     # Size (for streamfunction) + (for vorticity) - (corners of vorticity)
-    x = jnp.zeros(((N - 1) ** 2 + (N + 1) ** 2 - 4, 1), dtype=jnp.float64)
+    x = jnp.zeros(((N - 1) ** 2 + (N + 1) ** 2 - 4, ), dtype=jnp.float64)
     f_current = f(x=x, Re=Re, U_wall_top=U_wall_top)
 
     # Check if the initial guess is a solution
@@ -165,8 +164,7 @@ def newton_iterator_jax(
         n_iter += 1
 
         x, dx, f_current, f_norm = newton_iteration_step(
-            f=f, get_jacobian=get_jacobian,
-            x=x, Re=Re, U_wall_top=U_wall_top,
+            f=f, x=x, Re=Re, U_wall_top=U_wall_top,
             f_current=f_current,
             algorithm=algorithm,
         )
@@ -185,12 +183,12 @@ def newton_iterator_jax(
 
 # %% ../nbs/06_streamfunction_vorticity_jax.ipynb 17
 def newton_solver_jax(
-    f, get_jacobian, N, Re, U_wall_top,
-    algorithm="base", TOL=1e-8, max_iter=10, quiet=True
+    f, N, Re, U_wall_top,
+    algorithm="lineax_lu", TOL=1e-8, max_iter=10, quiet=True
 ):
 
     solution, n_iter = newton_iterator_jax(
-        f=f, get_jacobian=get_jacobian, N=N, Re=Re, U_wall_top=U_wall_top,
+        f=f, N=N, Re=Re, U_wall_top=U_wall_top,
         algorithm=algorithm,
         TOL=TOL, max_iter=max_iter, quiet=quiet
     )

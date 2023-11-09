@@ -5,6 +5,8 @@ __all__ = ['setup_poisson_problem', 'solve_sparse_linear_system', 'solve_sparse_
            'solve_sparse_linear_system_jax', 'calculate_force', 'calculate_velocity']
 
 # %% ../nbs/00_core.ipynb 4
+from functools import partial
+
 import numpy as np
 from scipy import sparse
 
@@ -12,6 +14,7 @@ import torch
 
 import jax
 import lineax as lx
+
 
 # %% ../nbs/00_core.ipynb 6
 def setup_poisson_problem(N):
@@ -33,12 +36,14 @@ def setup_poisson_problem(N):
 
     return w, exact_solution, nx, ny, x_grid, y_grid
 
+
 # %% ../nbs/00_core.ipynb 7
 SPARSE_ALGORITHM_DICT = {
     "base": sparse.linalg.spsolve,
     "cg": sparse.linalg.cg,
     "bicgstab": sparse.linalg.bicgstab,
 }
+
 
 # %% ../nbs/00_core.ipynb 8
 def solve_sparse_linear_system(A, b, algorithm="base", **kwargs):
@@ -86,25 +91,38 @@ def solve_sparse_linear_system_pytorch(A, b, algorithm="base", **kwargs):
 
 # %% ../nbs/00_core.ipynb 11
 JAX_ALGORITHM_DICT = {
-    "base": jax.numpy.linalg.solve,
-    "lineax_base": lx.linear_solve,
+    "jax_base": jax.numpy.linalg.solve,
+    # "jax_base_scipy": jax.scipy.sparse.linalg.solve, # NOTE: slower than jax_base
+    # "jax_bicgstab": jax.scipy.sparse.linalg.bicgstab, # NOTE: unstable
+    # "jax_gmres": jax.scipy.sparse.linalg.gmres, # NOTE: unstable
+    # "jax_lstsq": jax.numpy.linalg.lstsq, # NOTE: too slow
+    "lineax_lu": partial(lx.linear_solve, solver=lx.LU()), # NOTE: same as lineax.AutoLinearSolver
+    # "lineax_qr": partial(lx.linear_solve, solver=lx.QR()), # NOTE: slower than jax_base
+    # "lineax_svd": partial(lx.linear_solve, solver=lx.SVD()), # NOTE: too slow
+    # "lineax_bicgstab": partial(
+    #     lx.linear_solve, solver=lx.BiCGStab(rtol=1e-6, atol=1e-6)
+    # ), # NOTE: unstable
+    # "lineax_gmres": partial(
+    #     lx.linear_solve, solver=lx.GMRES(rtol=1e-6, atol=1e-6)
+    # ), # NOTE: unstable
 }
 
+
 # %% ../nbs/00_core.ipynb 12
-def solve_sparse_linear_system_jax(A, b, algorithm="base", **kwargs):
+def solve_sparse_linear_system_jax(A, b, algorithm="jax_base", **kwargs):
     """
     Solve a sparse linear system using the specified algorithm.
     """
 
     solver = JAX_ALGORITHM_DICT[algorithm]
 
-    if algorithm != "base":
+    if not "jax" in algorithm:
         A = lx.MatrixLinearOperator(A)
-        b = b.squeeze()
     
     out = solver(A, b, **kwargs)
 
-    if algorithm != "base": out = out.value[:, None]
+    if not "jax" in algorithm:
+        out = out.value
 
     return out
 
@@ -121,6 +139,7 @@ def calculate_force(psi):
         psi[1:-1, ny - 4]
     ) / h
 
+
 # %% ../nbs/00_core.ipynb 14
 def calculate_velocity(psi):
     h = 1 / (psi.shape[0] - 1)
@@ -135,4 +154,5 @@ def calculate_velocity(psi):
     
     u[1:-1, -1] = np.sin(np.pi * np.arange(1, nx - 1) * h) ** 2
     
-    return u, v 
+    return u, v
+

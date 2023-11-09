@@ -5,7 +5,7 @@ Repository containing code and and other materials for my undergraduate project 
 
 # Note
 
-Many of these codes were written abruptly and for one time use only, so it can (and probably will) be hard to read, but (at least most of them) they should run smoothly by just executing the cells in the notebooks one after the other.
+Many of these codes were written abruptly and for one time use only, so it can (and probably will) be hard to read, but (at least most of them) should run smoothly by just executing the cells in the notebooks one after the other.
 
 
 # Useful links
