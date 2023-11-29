@@ -13,49 +13,48 @@ from scipy import sparse
 # %% ../nbs/03_streamfunction_vorticity_newton.ipynb 9
 # Given the vorticity, solve the Poisson eqn. to find the streamfunction
 def get_standard_basis_vector(size, i):
-    vec = np.zeros((size, 1))
+    vec = np.zeros(size)
     vec[i] = 1.0
     
     return vec
 
 
-def get_jacobian(f, x, Re, kernel_matrix):
+def get_jacobian(f, x, Re):
     N = int(np.sqrt(x.shape[0] // 2 + 1))
     h = 1 / N
 
-    f_evaluated = f(x=x, Re=Re, kernel_matrix=kernel_matrix)
+    f_evaluated = f(x=x, Re=Re)
     
     # Jacobian is sparse
     return sparse.csr_matrix(
-        np.hstack([(
-            f(
-                x=x + h*get_standard_basis_vector(size=x.shape[0], i=i), Re=Re,
-                kernel_matrix=kernel_matrix
-            ) -
+        np.vstack([(
+            f(x=x + h*get_standard_basis_vector(size=x.shape[0], i=i), Re=Re) -
             f_evaluated
         ) for i in range(x.shape[0])])
-    )
+    ).T
 
 
-def f(x, Re, U_wall_top, kernel_matrix):
+def f(x, Re, U_wall_top):
     N = int(np.sqrt(x.shape[0] // 2 + 1))
     h = 1 / N
 
-    psi = x[:(N-1)**2]
-    w_left   = x[(N-1)**2 + 0*(N-1) : (N-1)**2 + 1*(N-1)][:, 0]
-    w_right  = x[(N-1)**2 + 1*(N-1) : (N-1)**2 + 2*(N-1)][:, 0]
-    w_bottom = x[(N-1)**2 + 2*(N-1) : (N-1)**2 + 3*(N-1)][:, 0]
-    w_top    = x[(N-1)**2 + 3*(N-1) : (N-1)**2 + 4*(N-1)][:, 0]
-    w_middle = x[(N-1)**2 + 4*(N-1) :]
+    psi = x[:(N-1)**2].reshape(N-1, N-1)
+    w_left   = x[(N-1)**2 + 0*(N-1) : (N-1)**2 + 1*(N-1)]
+    w_right  = x[(N-1)**2 + 1*(N-1) : (N-1)**2 + 2*(N-1)]
+    w_bottom = x[(N-1)**2 + 2*(N-1) : (N-1)**2 + 3*(N-1)]
+    w_top    = x[(N-1)**2 + 3*(N-1) : (N-1)**2 + 4*(N-1)]
+    w_middle = x[(N-1)**2 + 4*(N-1) :].reshape(N-1, N-1)
+
 
     # Calculate the equations coming from the Poisson equation
-    f_poisson = kernel_matrix @ psi
-    f_poisson = f_poisson + h ** 2 * w_middle
+    f_poisson = -4 * psi + h ** 2 * w_middle
+    f_poisson[1:, :] += psi[:-1, :]
+    f_poisson[:-1, :] += psi[1:, :]
+    f_poisson[:, :-1] += psi[:, 1:]
+    f_poisson[:, 1:] += psi[:, :-1]
 
-    psi = psi.reshape(N-1, N-1)
 
     # Calculate contributions coming from the vorticity transport equation
-    w_middle = w_middle.reshape(N-1, N-1)
     
     # Calculate the sides first
     # y = 0, U_wall = 0
@@ -117,17 +116,17 @@ def f(x, Re, U_wall_top, kernel_matrix):
     ) / 4
 
     return np.concatenate([
-        f_poisson[:, 0], f_w_left, f_w_right, f_w_bottom, f_w_top, f_w_middle.flatten()
-    ], axis=0).reshape(-1, 1)
+        f_poisson.flatten(), f_w_left, f_w_right, f_w_bottom, f_w_top, f_w_middle.flatten()
+    ], axis=0)
 
 
 def reconstruct_w(w_tmp, N):
     w = np.zeros((N+1, N+1))
     
-    w[:1, 1:-1] = w_tmp[0*(N-1):1*(N-1)].T
-    w[-1:, 1:-1] = w_tmp[1*(N-1):2*(N-1)].T
-    w[1:-1, :1] = w_tmp[2*(N-1):3*(N-1)]
-    w[1:-1, -1:] = w_tmp[3*(N-1):4*(N-1)]
+    w[0, 1:-1] = w_tmp[0*(N-1):1*(N-1)]
+    w[-1, 1:-1] = w_tmp[1*(N-1):2*(N-1)]
+    w[1:-1, 0] = w_tmp[2*(N-1):3*(N-1)]
+    w[1:-1, -1] = w_tmp[3*(N-1):4*(N-1)]
     w[1:-1, 1:-1] = w_tmp[4*(N-1):].reshape((N - 1, N - 1))
     
     return w
@@ -152,9 +151,8 @@ def newton_iterator(
     # Initialization
     # Size (N - 1) ** 2         + (N + 1) ** 2    - 4
     # Size (for streamfunction) + (for vorticity) - (corners of vorticity)
-    x = np.zeros(((N - 1) ** 2 + (N + 1) ** 2 - 4, 1))
-    A = poisson_solvers.construct_laplacian_kernel_matrix(N=N-1, h=1)
-    f_current = f(x=x, Re=Re, kernel_matrix=A)
+    x = np.zeros((N - 1) ** 2 + (N + 1) ** 2 - 4)
+    f_current = f(x=x, Re=Re)
     
     # Check if the initial guess is a solution
     f_norm = scipy.linalg.norm(f_current)
@@ -166,16 +164,16 @@ def newton_iterator(
     
     while n_iter < max_iter:
         n_iter += 1
-        jacobian = get_jacobian(f=f, x=x, Re=Re, kernel_matrix=A)
+        jacobian = get_jacobian(f=f, x=x, Re=Re)
 
         kwargs = {}
         if algorithm == "bicgstab": kwargs["tol"] = 1e-6
         dx = core.solve_sparse_linear_system(
             A=jacobian, b=-h * f_current, algorithm=algorithm, **kwargs
-        ).reshape((-1, 1))
+        )
         x_next = x + dx
         
-        f_current = f(x=x_next, Re=Re, kernel_matrix=A)
+        f_current = f(x=x_next, Re=Re)
         
         f_norm = scipy.linalg.norm(f_current)
         if not quiet:

@@ -56,55 +56,34 @@ def construct_laplacian_kernel_matrix(N, h=None):
     '''
 
     if h is None:
-        h = 1 / (N + 1)
+        h = 1 / N
+    
+    # The output size is N - 1 because we are excluding the boundary points
+    N -= 1
 
-    index_matrix = np.arange(N ** 2).reshape((N, N))
+    values = np.ones(5 * N**2 - 4 * N) / h**2
+    values[:N**2] *= -4
+
     all_indices = np.arange(N ** 2)
     
     rows = [np.arange(N ** 2)]
     cols = [np.arange(N ** 2)]
-    values = [[-4 / h ** 2] * N ** 2]
 
-    # Create grid
-    x_grid, y_grid = np.meshgrid(
-        np.arange(0, N), np.arange(0, N), indexing="ij"
-    )
+    rows.append(all_indices[N:N**2])
+    cols.append(all_indices[:-N])
 
-    # Masks for validity
-    valid_above = x_grid > 0
-    valid_below = x_grid < N - 1
-    valid_left = y_grid > 0
-    valid_right = y_grid < N - 1
+    rows.append(all_indices[:-N])
+    cols.append(all_indices[N:N**2])
 
-    # Get the indices
-    rows.append(all_indices[valid_above.flatten()])
-    cols.append(index_matrix[(
-        (x_grid - 1)[valid_above].flatten(), y_grid[valid_above].flatten()
-    )].flatten())
-    values.append([1 / h ** 2] * (N ** 2 - N))
+    rows.append(all_indices[all_indices % N != 0])
+    cols.append(all_indices[(all_indices + 1) % N != 0])
 
-    rows.append(all_indices[valid_below.flatten()])
-    cols.append(index_matrix[(
-        (x_grid + 1)[valid_below].flatten(), y_grid[valid_below].flatten()
-    )].flatten())
-    values.append([1 / h ** 2] * (N ** 2 - N))
-
-    rows.append(all_indices[valid_left.flatten()])
-    cols.append(index_matrix[(
-        x_grid[valid_left].flatten(), (y_grid - 1)[valid_left].flatten()
-    )].flatten())
-    values.append([1 / h ** 2] * (N ** 2 - N))
-
-    rows.append(all_indices[valid_right.flatten()])
-    cols.append(index_matrix[(
-        x_grid[valid_right].flatten(), (y_grid + 1)[valid_right].flatten()
-    )].flatten())
-    values.append([1 / h ** 2] * (N ** 2 - N))
+    rows.append(all_indices[(all_indices + 1) % N != 0])
+    cols.append(all_indices[all_indices % N != 0])
 
     # Flatten the lists
     rows = np.concatenate(rows)
     cols = np.concatenate(cols)
-    values = np.concatenate(values)
 
     # Create the sparse matrix from the above information
     return sparse.csr_matrix((values, (rows, cols)), shape=(N ** 2, N ** 2))
@@ -112,7 +91,7 @@ def construct_laplacian_kernel_matrix(N, h=None):
 
 # %% ../nbs/01_poisson_solvers.ipynb 25
 def poisson_non_iterative_solver(w, algorithm="bicgstab"):
-    N = w.shape[0] - 2
+    N = w.shape[0] - 1
 
     # Construct the matrix that defines the linear system
     kernel_matrix = construct_laplacian_kernel_matrix(N)
@@ -127,7 +106,7 @@ def poisson_non_iterative_solver(w, algorithm="bicgstab"):
         A=-kernel_matrix, b=w, algorithm=algorithm
     )
     
-    psi = psi.reshape(N, N)
+    psi = psi.reshape(N-1, N-1) # exclude the boundary points
 
     psi = np.pad(psi, (1, 1), mode="constant")
     
@@ -135,24 +114,24 @@ def poisson_non_iterative_solver(w, algorithm="bicgstab"):
 
 
 # %% ../nbs/01_poisson_solvers.ipynb 32
-def get_jacobian(N):
-    # Set h=1 and note that we actually compute h ** 2 * f_current below.
-    # This is to done have better scaling.
-    return construct_laplacian_kernel_matrix(N, h=1)
+def get_jacobian(N, h=1):
+    return construct_laplacian_kernel_matrix(N, h=h)
     
 
 def f(x, w):
-    # this N is different from before
-    N = int(np.sqrt(x.shape[0]))
-    h = 1 / (N + 1)
-    
-    x = x.reshape(N, N)
-    x = np.pad(x, (1, 1), mode="constant", constant_values=0)
-    
-    f = -4 * x[1:-1, 1:-1] + x[2:, 1:-1] + x[:-2, 1:-1] + x[1:-1, 2:] + x[1:-1, :-2]
-    f = f + h ** 2 * w[1:-1, 1:-1] # note we compute h ** 2 * f_current
-    
-    return f.reshape((-1, 1))
+    N = int(np.sqrt(x.shape[0])) + 1
+    h = 1 / N
+
+    x = x.reshape(N-1, N-1)
+
+    # note we compute h ** 2 * f_current
+    f = -4 * x + h ** 2 * w[1:-1, 1:-1]
+    f[1:, :] += x[:-1, :]
+    f[:-1, :] += x[1:, :]
+    f[:, :-1] += x[:, 1:]
+    f[:, 1:] += x[:, :-1]
+
+    return f.flatten()
 
 
 def newton_iterator(
@@ -170,7 +149,7 @@ def newton_iterator(
     n_iter = 0 # number of iterations
 
     # Initialization
-    x = np.zeros(((N - 1) ** 2, 1))
+    x = np.zeros(((N - 1) ** 2))
     f_current = f(x, w)
     
     # Check if the initial guess is a solution
@@ -185,12 +164,11 @@ def newton_iterator(
     while n_iter < max_iter:
         n_iter += 1
         # Set h=1 to have better scaling and note that we actually compute h ** 2 * f_current
-        # jacobian = sparse.csr_matrix(get_jacobian(N=N-1)) # Sparsify the jacobian
-        jacobian = get_jacobian(N=N-1) # Sparsify the jacobian
+        jacobian = get_jacobian(N)
         
         dx = core.solve_sparse_linear_system(
             A=jacobian, b=-f_current, algorithm=algorithm
-        ).reshape((-1, 1))
+        )
         x_next = x + dx
         
         f_current = f(x_next, w)
@@ -228,21 +206,13 @@ def poisson_newton_solver(
 
 
 # %% ../nbs/01_poisson_solvers.ipynb 34
-def alternative_jacobian(x):
-    N = int(np.sqrt(x.shape[0]))
-    return get_jacobian(N)
-
-
-def alternative_f(x, w):
-    return f(x, w).flatten()
-
-
-# %% ../nbs/01_poisson_solvers.ipynb 35
 def poisson_newton_alternative_solver(w, **kwargs):
     N = w.shape[0] - 1
 
+    # Can define jacobian as `jac=lambda x, args: get_jacobian(N=N, h=1/N)`
     solution = scipy.optimize.root(
-        fun=partial(alternative_f, w=w), x0=np.zeros(((N - 1) ** 2, )),
+        fun=f, x0=np.zeros((N - 1) ** 2),
+        args=(w, ),
         **kwargs
     )
     

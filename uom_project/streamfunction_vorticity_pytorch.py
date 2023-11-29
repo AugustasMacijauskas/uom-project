@@ -25,12 +25,11 @@ def f_pytorch(x, Re, U_wall_top):
     w_middle = x[(N-1)**2 + 4*(N-1) :].reshape(N-1, N-1)
 
     # Calculate the equations coming from the Poisson equation
-    f_poisson = -4 * psi
+    f_poisson = -4 * psi + h ** 2 * w_middle
     f_poisson[:-1, :] += psi[1:, :]
     f_poisson[1:, :] += psi[:-1, :]
     f_poisson[:, :-1] += psi[:, 1:]
     f_poisson[:, 1:] += psi[:, :-1]
-    f_poisson = f_poisson + h ** 2 * w_middle
 
     # Calculate the sides first
     # y = 0, U_wall = 0
@@ -91,10 +90,10 @@ def f_pytorch(x, Re, U_wall_top):
         psi[-1, -2] * (w_right[-1] - w_middle[-2, -1])
     ) / 4
 
-    return torch.concatenate([
+    return torch.hstack([
         f_poisson.flatten(), f_w_left, f_w_right, f_w_bottom, f_w_top,
         f_w_middle.flatten()
-    ], axis=0)[:, None]
+    ])[:, None]
 
 
 def reconstruct_w_pytorch(w_tmp, N, device):
@@ -120,8 +119,6 @@ def newton_iterator_pytorch(
         - h: grid size
         - Re: Reynolds number
     '''
-
-    h = 1 / N
 
     n_iter = 0 # number of iterations
 
